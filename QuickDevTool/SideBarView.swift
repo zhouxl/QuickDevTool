@@ -7,7 +7,7 @@
 
 import SwiftUI
 
-struct MenuItem: Identifiable, Hashable {
+struct SideBarItem: Identifiable, Hashable {
     
     enum Action {
     case jsonToModel
@@ -16,20 +16,20 @@ struct MenuItem: Identifiable, Hashable {
     var id = UUID()
     var name: String
     var image: String
-    var subMenuItems: [MenuItem]?
+    var subMenuItems: [SideBarItem]?
     var type = Action.jsonToModel
 }
 
-struct MenuItemView: View {
-    var item: MenuItem
+struct SideBarView: View {
+    var item: SideBarItem
     var body: some View {
         HStack {
-            Image(item.image)
+            Image(systemName: item.image)
                 .resizable()
                 .scaledToFit()
-                .frame(width: 20, height: 20)
+                .frame(width: 16, height: 16)
             Text(item.name)
-                .font(.system(.title3, design: .rounded))
+                .font(.system(.headline, design: .rounded))
                 .bold()
         }
     }
@@ -37,6 +37,6 @@ struct MenuItemView: View {
 
 struct MenuItemView_Previews: PreviewProvider {
     static var previews: some View {
-        MenuItemView(item: MenuItem(name: "测试", image: "", type: .jsonToModel))
+        SideBarView(item: SideBarItem(name: "测试", image: "repeat", type: .jsonToModel))
     }
 }

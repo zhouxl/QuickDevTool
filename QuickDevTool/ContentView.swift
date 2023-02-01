@@ -16,30 +16,32 @@ struct ContentView: View {
         animation: .default)
     private var items: FetchedResults<Item>
 
-    @State private var selectedItemAction: MenuItem.Action?
+    @State private var selectedItemId: SideBarItem.ID?
     private var menuList = [
-        MenuItem(name: "JSONToModel", image: "arrow.left.arrow.right", type: .jsonToModel)
+        SideBarItem(name: "JSONToModel", image: "arrow.left.arrow.right", type: .jsonToModel)
     ]
     
     var body: some View {
         NavigationSplitView {
-            List(menuList,selection: $selectedItemAction) { item in
-                MenuItemView(item: item)
+            List(menuList,selection: $selectedItemId) { item in
+                SideBarView(item: item)
             }
+            .listStyle(SidebarListStyle())
+            .frame(minWidth: 160)
+            
         } detail: {
-            if let selectedItemAction {
-                if selectedItemAction == .jsonToModel {
-                        JSONModelView()
-                }
-                
-            } else {
-                Text("Please select a category")
-            }
+            JSONModelView()
+//            if case let itemId = $selectedItemId {
+//                JSONModelView()
+//            }else {
+//                Text("Please select a category")
+//            }
         }
     }
 
    
 }
+
 
 
 
