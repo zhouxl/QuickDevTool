@@ -39,10 +39,10 @@ struct JSONModelView: View {
             }
             
             HStack() {
-                if(modelInfo.showValidResult()) {
-                    Text((modelInfo.isValidJSON ? "JSON数据✅":"JSON数据❌"))
-                        .foregroundColor(modelInfo.isValidJSON ? Color.green : Color.red)
-                }
+                
+                Text(modelInfo.validJSONTag)
+                    .foregroundColor(modelInfo.isValidJSON ? Color.green : Color.red)
+                
                 
                 Button("格式化") {
                     

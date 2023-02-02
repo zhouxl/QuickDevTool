@@ -109,19 +109,21 @@ struct JSONModelInfo {
     
     var result:[String] = []
     
-    var isValidJSON = true
+    var validJSONTag = ""
+    var isValidJSON = false
     
     private mutating func updateModel()  {
         result.removeAll()
+        guard self.jsonToDic().count > 0 && JSONSerialization.isValidJSONObject(self.jsonToDic()) else {
+            validJSONTag = self.json.count == 0 ? "" :  "❌JSON数据"
+            isValidJSON = false;
+            return
+        }
+        isValidJSON = true
+        validJSONTag = "✅JSON数据"
         convertToModelClass()
     }
     
-    func showValidResult() -> Bool {
-        guard !json.isEmpty else {
-            return false
-        }
-        return isValidJSON
-    }
     
     mutating func convertToModelClass()  {
         guard !self.json.isEmpty else {
@@ -424,7 +426,6 @@ fileprivate struct ConvertToOC {
         
         return proName;
     }
-    
 }
 
 extension String {
