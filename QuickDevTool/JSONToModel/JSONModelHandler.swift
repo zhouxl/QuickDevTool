@@ -403,6 +403,9 @@ fileprivate struct ConvertToOC {
     }
     
     func buildProperty(name: String) -> String {
+        if KeyWord.black.contains(name) {
+            return "b_" + name
+        }
         return name;
     }
     
