@@ -27,14 +27,17 @@ struct JSONModelView: View {
                     }
                     TextEditor(text: $modelInfo.json)
                 }
+                .listStyle(SidebarListStyle())
                 VStack{
                     if($modelInfo.result.count > 0) {
                         Text("生成Model信息")
                         ForEach(0..<modelInfo.result.count, id: \.self) { i in
                             TextEditor(text: $modelInfo.result[i])
+                                .padding(8)
                         }
                     }
                 }
+                .listStyle(SidebarListStyle())
                 
             }
             
@@ -45,7 +48,7 @@ struct JSONModelView: View {
                 
                 
                 Button("格式化") {
-                    
+                    modelInfo.prettyJson()
                 }
                 Button {
                     

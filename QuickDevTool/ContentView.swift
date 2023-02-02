@@ -31,6 +31,7 @@ struct ContentView: View {
             
         } detail: {
             JSONModelView()
+                
 //            if case let itemId = $selectedItemId {
 //                JSONModelView()
 //            }else {

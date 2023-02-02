@@ -125,6 +125,14 @@ struct JSONModelInfo {
         convertToModelClass()
     }
     
+    mutating func prettyJson() {
+        guard let data = try? JSONSerialization.data(withJSONObject: self.jsonToDic(), options: .prettyPrinted) ,
+            let prettyJson = String(data: data, encoding: .utf8) else {
+            return
+        }
+        json = prettyJson
+    }
+    
     
     mutating func convertToModelClass()  {
         guard !self.json.isEmpty else {
