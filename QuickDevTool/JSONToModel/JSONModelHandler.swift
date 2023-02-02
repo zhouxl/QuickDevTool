@@ -114,6 +114,7 @@ struct JSONModelInfo {
     
     private mutating func updateModel()  {
         result.removeAll()
+        
         guard self.jsonToDic().count > 0 && JSONSerialization.isValidJSONObject(self.jsonToDic()) else {
             validJSONTag = self.json.count == 0 ? "" :  "❌JSON数据"
             isValidJSON = false;
@@ -154,13 +155,16 @@ fileprivate struct ConvertToOC {
     
     var dictObject: [String: [String: ValueClassType]] = [:]
     var camelCache:[String:String] = [:]
+    var allClasses: [String] = []
     
     mutating func build() -> [String] {
         var result:[String] = []
         let className = buildName(name: info.fileName)
         covertJSONToModel(name: className, dic: info.jsonToDic())
-        let fileH = buildHContent();
+        let fileH = buildHContent()
         result.append(fileH)
+        let fileM = buildMContent()
+        result.append(fileM)
         return result
     }
     
@@ -372,7 +376,6 @@ fileprivate struct ConvertToOC {
     
     mutating func buildHContent() -> String {
         var result = ""
-        var allClasses: [String] = []
         for (name, values) in dictObject {
             let uClassName = buildName(name: name)
             allClasses.append(uClassName)
@@ -380,14 +383,43 @@ fileprivate struct ConvertToOC {
             result += str
         }
         let fileName = buildName(name: info.fileName)
-        allClasses.removeAll { name in
-            fileName == name
-        }
+        
         var preClass = ""
         if allClasses.count > 0 {
             preClass = "@class " + allClasses.joined(separator: ",") + ";\n"
         }
         result.insert(contentsOf: preClass, at: result.startIndex)
+        return result
+    }
+    /*
+     + (nullable NSDictionary<NSString *, id> *)modelCustomPropertyMapper {
+     return @{
+     @"cover":@"image.index_image",
+     };
+     }
+     
+     + (nullable NSDictionary<NSString *, id> *)modelContainerPropertyGenericClass {
+     return @{
+     @"user_tasks": [PBBookUserTaskModel class]
+     };
+     }
+     */
+    mutating func buildMContent() -> String {
+        var result = ""
+        for className in allClasses {
+            result = "\n#pragma mark - \(className)\n\n"
+            result += "@implementation \(className)\n\n"
+            if(info.useCamelCase) {
+                result += "+ (nullable NSDictionary<NSString *, id> *)modelCustomPropertyMapper {\n"
+                result += "\treturn @{\n"
+                for (key, value) in camelCache {
+                    result += "\t\t@\"\(key)\":@\"\(value)\",\n"
+                }
+                result += "\t};\n"
+                result += "}\n"
+            }
+            result += "@end\n"
+        }
         return result
     }
     
