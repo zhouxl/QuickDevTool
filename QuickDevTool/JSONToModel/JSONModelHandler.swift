@@ -392,11 +392,6 @@ fileprivate struct ConvertToOC {
         return result
     }
     /*
-     + (nullable NSDictionary<NSString *, id> *)modelCustomPropertyMapper {
-     return @{
-     @"cover":@"image.index_image",
-     };
-     }
      
      + (nullable NSDictionary<NSString *, id> *)modelContainerPropertyGenericClass {
      return @{
@@ -418,7 +413,7 @@ fileprivate struct ConvertToOC {
                 result += "\t};\n"
                 result += "}\n"
             }
-            result += "@end\n"
+            result += "@end\n\n"
         }
         return result
     }
