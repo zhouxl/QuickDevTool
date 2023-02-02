@@ -10,19 +10,8 @@ import Foundation
 protocol ModelHelper: CaseIterable {}
 
 enum CodeLanguage: String,CaseIterable {
-    enum OCModelHelper:String, ModelHelper {
-        case None
-        case YYModel
-    }
     
     case OC
-    
-    func modelHelper() -> [any ModelHelper] {
-        switch self {
-        case .OC:
-            return OCModelHelper.allCases
-        }
-    }
     
 }
 
@@ -100,6 +89,14 @@ struct JSONModelInfo {
             updateModel()
         }
     }
+    
+    var useCamelCase: Bool = true {
+        didSet {
+            updateModel()
+        }
+    }
+    
+    
     var suffix: String = "Model"
     
     var language: CodeLanguage = .OC {
@@ -107,6 +104,9 @@ struct JSONModelInfo {
             updateModel()
         }
     }
+    
+    
+    
     var result:[String] = []
     
     var isValidJSON = true
@@ -151,6 +151,7 @@ fileprivate struct ConvertToOC {
     let info: JSONModelInfo
     
     var dictObject: [String: [String: ValueClassType]] = [:]
+    var camelCache:[String:String] = [:]
     
     mutating func build() -> [String] {
         var result:[String] = []
@@ -211,7 +212,7 @@ fileprivate struct ConvertToOC {
         }
     }
     //TODO:
-    func covertToObjectString(uClassName: String, value: [String: ValueClassType]) -> String {
+    mutating func covertToObjectString(uClassName: String, value: [String: ValueClassType]) -> String {
         
         let superClassName = info.superName.isEmpty ? "NSObject" : info.superName
         //
@@ -244,7 +245,7 @@ fileprivate struct ConvertToOC {
         return strObject
     }
     
-    func createProperty(_ valueType: ValueClassType,
+    mutating func createProperty(_ valueType: ValueClassType,
                         key : String
     ) -> String {
         let strValueType =  valueType.tagForOC
@@ -367,7 +368,7 @@ fileprivate struct ConvertToOC {
         }
     }
     
-    func buildHContent() -> String {
+    mutating func buildHContent() -> String {
         var result = ""
         var allClasses: [String] = []
         for (name, values) in dictObject {
@@ -380,7 +381,10 @@ fileprivate struct ConvertToOC {
         allClasses.removeAll { name in
             fileName == name
         }
-        let preClass = "@class " + allClasses.joined(separator: ",") + ";\n"
+        var preClass = ""
+        if allClasses.count > 0 {
+            preClass = "@class " + allClasses.joined(separator: ",") + ";\n"
+        }
         result.insert(contentsOf: preClass, at: result.startIndex)
         return result
     }
@@ -402,72 +406,98 @@ fileprivate struct ConvertToOC {
         return preName
     }
     
-    func buildProperty(name: String) -> String {
-        if KeyWord.black.contains(name) {
-            return "b_" + name
+    mutating func buildProperty(name: String) -> String {
+        var proName = name;
+        if KeyWord.OC.black.contains(proName) {
+            proName = "b_" + proName
         }
-        return name;
+        if( info.useCamelCase ) {
+            
+            if let cacheName = camelCache[name] {
+                proName = cacheName
+            }else  {
+                proName = proName.lowerCameCase()
+                camelCache[name] = proName
+            }
+        }
+        
+        
+        return proName;
     }
-    
     
 }
 
+extension String {
+    func lowerCameCase(separatedBy word: String = "_") -> String {
+        guard self.contains(word) else {
+            return self
+        }
+        var name = self.components(separatedBy: word).map { $0.capitalized }.joined()
+        let firstC = name.removeFirst()
+        return firstC.lowercased() + name;
+    }
+}
+
+
 struct KeyWord {
-    static let black: [String] = [
-        "class",
-        "operator",
-        "deinit",
-        "enum",
-        "extension",
-        "func",
-        "import",
-        "init",
-        "let",
-        "protocol",
-        "static",
-        "struct",
-        "subscript",
-        "typealias",
-        "var",
-        "break",
-        "case",
-        "continue",
-        "default",
-        "do",
-        "else",
-        "fallthrough",
-        "if",
-        "in",
-        "for",
-        "return",
-        "switch",
-        "where",
-        "while",
-        "as",
-        "is",
-        "new",
-        "super",
-        "self",
-        "Self",
-        "Type",
-        "associativity",
-        "didSet",
-        "get",
-        "infix",
-        "inout",
-        "mutating",
-        "nonmutating",
-        "operator",
-        "override",
-        "postfix",
-        "precedence",
-        "prefix",
-        "set",
-        "unowned",
-        "weak",
-        "Any",
-        "AnyObject"
-    ]
+    struct OC {
+        static let black: [String] = [
+            "class",
+            "operator",
+            "deinit",
+            "enum",
+            "extension",
+            "void",
+            "import",
+            "init",
+            "let",
+            "protocol",
+            "static",
+            "struct",
+            "subscript",
+            "typealias",
+            "var",
+            "break",
+            "case",
+            "continue",
+            "default",
+            "do",
+            "else",
+            "fallthrough",
+            "if",
+            "in",
+            "for",
+            "return",
+            "switch",
+            "where",
+            "while",
+            "as",
+            "is",
+            "new",
+            "super",
+            "self",
+            "Self",
+            "Type",
+            "associativity",
+            "didSet",
+            "get",
+            "infix",
+            "inout",
+            "mutating",
+            "nonmutating",
+            "operator",
+            "override",
+            "postfix",
+            "precedence",
+            "prefix",
+            "set",
+            "unowned",
+            "weak",
+            "Any",
+            "AnyObject"
+        ]
+    }
+    
 
 }
 
