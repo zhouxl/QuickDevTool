@@ -22,24 +22,37 @@ struct ContentView: View {
     ]
     
     var body: some View {
-        NavigationSplitView {
+        
+        NavigationView {
             List(menuList,selection: $selectedItemId) { item in
-                SideBarView(item: item)
+                NavigationLink {
+                    JSONModelView()
+                } label: {
+                    SideBarView(item: item)
+                }
             }
             .listStyle(SidebarListStyle())
             .frame(minWidth: 160)
-            
-        } detail: {
-            JSONModelView()
-                
-//            if case let itemId = $selectedItemId {
-//                JSONModelView()
-//            }else {
-//                Text("Please select a category")
-//            }
         }
+        .toolbar {
+            ToolbarItem(placement: ToolbarItemPlacement.navigation) {
+                Button {
+                    toggleSidebar()
+                } label: {
+                    Label("Sidebar", systemImage: "sidebar.left")
+                }
+            }
+
+        }
+        
     }
 
+    private func toggleSidebar() { // 2
+#if os(iOS)
+#else
+        NSApp.keyWindow?.firstResponder?.tryToPerform(#selector(NSSplitViewController.toggleSidebar(_:)), with: nil)
+#endif
+    }
    
 }
 

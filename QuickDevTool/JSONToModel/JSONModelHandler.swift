@@ -162,7 +162,7 @@ fileprivate struct ConvertToOC {
     let info: JSONModelInfo
     
     var dictObject: [String: [String: ValueClassType]] = [:]
-    var camelCache:[String:String] = [:]
+    var camelCache:[String: [String:String]] = [:]
     var allClasses: [String] = []
     
     mutating func build() -> [String] {
@@ -180,7 +180,7 @@ fileprivate struct ConvertToOC {
         let className = name
         dictObject[className] = [:]
         for(key, value) in dic {
-            let propertyName = buildProperty(name: key)
+            let propertyName = buildProperty(name: key, className: className)
             if type(of: value) == type(of: NSNumber(integerLiteral: 1)) {
                 if let _ = value as? Int {
                     dictObject[className]?[propertyName] =  .kInt
@@ -236,21 +236,15 @@ fileprivate struct ConvertToOC {
         strObject += "@interface \(uClassName) : \(superClassName)\n\n"
         
         var strProperties = ""
-        var strListParameters = ""
-        
         
         for (pName, pValue) in value.sorted(by: {$0.key < $1.key}) {
             
-            let lowPName = buildProperty(name: pName)
+            let lowPName = buildProperty(name: pName, className: uClassName)
             
             strProperties += createProperty(pValue,
-                                            key: lowPName)
-            strListParameters += "\(lowPName): \(self.buildName(name: pValue.tagForOC)), \n\t\t\t\t\t\t\t"
+                                            key: lowPName, className: uClassName)
         }
         
-        if strListParameters.count > 9 {
-            strListParameters.removeLast(10)
-        }
         
         strObject += strProperties + "\n"
         
@@ -260,17 +254,18 @@ fileprivate struct ConvertToOC {
     }
     
     mutating func createProperty(_ valueType: ValueClassType,
-                        key : String
+                                 key : String,
+                                 className: String
     ) -> String {
         let strValueType =  valueType.tagForOC
         var result = ""
         switch valueType {
         case .kArray(_), .kObject(_):
-            result = "@property (nonatomic, strong) \(strValueType)\(self.buildProperty(name: key));\n"
+            result = "@property (nonatomic, strong) \(strValueType)\(self.buildProperty(name: key, className: className));\n"
         case .kString:
-            result = "@property (nonatomic, copy) \(strValueType)\(self.buildProperty(name: key));\n"
+            result = "@property (nonatomic, copy) \(strValueType)\(self.buildProperty(name: key, className: className));\n"
         default:
-            result = "@property (nonatomic, assign) \(strValueType)\(self.buildProperty(name: key));\n"
+            result = "@property (nonatomic, assign) \(strValueType)\(self.buildProperty(name: key, className: className));\n"
         }
         
         return result
@@ -410,14 +405,17 @@ fileprivate struct ConvertToOC {
     mutating func buildMContent() -> String {
         var result = ""
         for className in allClasses {
-            result = "\n#pragma mark - \(className)\n\n"
+            result += "\n#pragma mark - \(className)\n\n"
             result += "@implementation \(className)\n\n"
             if(info.useCamelCase) {
                 result += "+ (nullable NSDictionary<NSString *, id> *)modelCustomPropertyMapper {\n"
                 result += "\treturn @{\n"
-                for (key, value) in camelCache {
-                    result += "\t\t@\"\(key)\":@\"\(value)\",\n"
+                if let propertyMap = camelCache[className] {
+                    for (key, value) in propertyMap {
+                        result += "\t\t@\"\(key)\":@\"\(value)\",\n"
+                    }
                 }
+                
                 result += "\t};\n"
                 result += "}\n"
             }
@@ -438,23 +436,27 @@ fileprivate struct ConvertToOC {
         var preName = name;
         if(preName.hasSuffix(info.suffix)) {
             preName.removeSubrange(preName.range(of: info.suffix)!)
-            preName += childName.capitalized + info.suffix
         }
+        preName += childName.capitalized + info.suffix
         return preName
     }
     
-    mutating func buildProperty(name: String) -> String {
+    mutating func buildProperty(name: String, className: String) -> String {
         var proName = name;
         if KeyWord.OC.black.contains(proName) {
             proName = "b_" + proName
         }
         if( info.useCamelCase ) {
-            
-            if let cacheName = camelCache[name] {
+            if camelCache[className] == nil {
+                camelCache[className] = [:];
+            }
+            if let cacheName = camelCache[className]![name] {
                 proName = cacheName
             }else  {
                 proName = proName.lowerCameCase()
-                camelCache[name] = proName
+                if(name.contains("_")) {
+                    camelCache[className]![name] = proName
+                }
             }
         }
         

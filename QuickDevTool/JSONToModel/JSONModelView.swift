@@ -23,7 +23,7 @@ struct JSONModelView: View {
                     }
                     HStack {
                         TextField("父类", text: $modelInfo.superName, prompt: Text("NSObject"));
-                        TextField("类名", text: $modelInfo.fileName, prompt: nil);
+                        TextField("文件名（外层类名）", text: $modelInfo.fileName, prompt: nil);
                     }
                     TextEditor(text: $modelInfo.json)
                 }
@@ -55,6 +55,8 @@ struct JSONModelView: View {
                 } label: {
                     Text("保存文件")
                 }
+                .disabled(true)
+                
                 
                 Spacer()
                 
