@@ -15,8 +15,8 @@ enum CodeLanguage: String,CaseIterable {
     
 }
 
-indirect enum ValueClassType {
-    case kArray(ValueClassType)
+indirect enum PropertyType {
+    case kArray(PropertyType)
     case kObject(String)
     case kInt
     case kString
@@ -53,10 +53,6 @@ indirect enum ValueClassType {
     }
 }
 
-struct CodeStyle {
-    
-}
-
 
 struct JSONModelInfo {
     var projectName: String = "" {
@@ -84,28 +80,22 @@ struct JSONModelInfo {
             updateModel()
         }
     }
-    var json: String = "" {
-        didSet {
-            updateModel()
-        }
-    }
-    
-    var useCamelCase: Bool = true {
-        didSet {
-            updateModel()
-        }
-    }
-    
-    
     var suffix: String = "Model"
-    
     var language: CodeLanguage = .OC {
         didSet {
             updateModel()
         }
     }
-    
-    
+    var useCamelCase: Bool = true {
+        didSet {
+            updateModel()
+        }
+    }
+    var json: String = "" {
+        didSet {
+            updateModel()
+        }
+    }
     
     var result:[String] = []
     
@@ -114,16 +104,15 @@ struct JSONModelInfo {
     
     private mutating func updateModel()  {
         result.removeAll()
-        
-        guard self.jsonToDic().count > 0 && JSONSerialization.isValidJSONObject(self.jsonToDic()) else {
+        isValidJSON = self.jsonToDic().count > 0 && JSONSerialization.isValidJSONObject(self.jsonToDic())
+        guard isValidJSON else {
             validJSONTag = self.json.count == 0 ? "" :  "❌JSON数据"
-            isValidJSON = false;
             return
         }
-        isValidJSON = true
         validJSONTag = "✅JSON数据"
         convertToModelClass()
     }
+    
     
     mutating func prettyJson() {
         guard let data = try? JSONSerialization.data(withJSONObject: self.jsonToDic(), options: .prettyPrinted) ,
@@ -151,8 +140,6 @@ struct JSONModelInfo {
                 return dic as! [String : Any]
             }
         }
-        
-        //TODO: show error
         return [String : Any]()
     }
     
@@ -161,14 +148,15 @@ struct JSONModelInfo {
 fileprivate struct ConvertToOC {
     let info: JSONModelInfo
     
-    var dictObject: [String: [String: ValueClassType]] = [:]
+    var dictObject: [String: [String: PropertyType]] = [:]
     var camelCache:[String: [String:String]] = [:]
     var allClasses: [String] = []
+    var fileName: String = ""
     
     mutating func build() -> [String] {
         var result:[String] = []
-        let className = buildName(name: info.fileName)
-        covertJSONToModel(name: className, dic: info.jsonToDic())
+        fileName = buildName(name: info.fileName)
+        parseJSON(name: fileName, dic: info.jsonToDic())
         let fileH = buildHContent()
         result.append(fileH)
         let fileM = buildMContent()
@@ -176,7 +164,7 @@ fileprivate struct ConvertToOC {
         return result
     }
     
-    mutating func covertJSONToModel(name: String, dic: [String: Any]) {
+    mutating func parseJSON(name: String, dic: [String: Any]) {
         let className = name
         dictObject[className] = [:]
         for(key, value) in dic {
@@ -192,7 +180,7 @@ fileprivate struct ConvertToOC {
                 continue
             }
             else if type(of: value) == type(of: NSNumber(booleanLiteral: true)) {
-                dictObject[className]?[propertyName] = ValueClassType.kBool
+                dictObject[className]?[propertyName] = PropertyType.kBool
                 continue
             }
             
@@ -200,7 +188,7 @@ fileprivate struct ConvertToOC {
                 
             case is String:
                 
-                dictObject[className]?[propertyName] = ValueClassType.kString
+                dictObject[className]?[propertyName] = PropertyType.kString
                 
             case is Array<Any>:
                 
@@ -217,7 +205,7 @@ fileprivate struct ConvertToOC {
                 
                 let objectName = buildChildClass(name: className, childName: propertyName)
                 dictObject[className]?[propertyName] = .kObject(objectName)
-                covertJSONToModel(name: objectName, dic: value)
+                parseJSON(name: objectName, dic: value)
             case is NSNull:
                 dictObject[className]?[propertyName] = .kAny
             default:
@@ -225,64 +213,19 @@ fileprivate struct ConvertToOC {
             }
         }
     }
-    //TODO:
-    mutating func covertToObjectString(uClassName: String, value: [String: ValueClassType]) -> String {
-        
-        let superClassName = info.superName.isEmpty ? "NSObject" : info.superName
-        //
-        
-        
-        var strObject = "\n#pragma mark - \(uClassName)\n\n"
-        strObject += "@interface \(uClassName) : \(superClassName)\n\n"
-        
-        var strProperties = ""
-        
-        for (pName, pValue) in value.sorted(by: {$0.key < $1.key}) {
-            
-            let lowPName = buildProperty(name: pName, className: uClassName)
-            
-            strProperties += createProperty(pValue,
-                                            key: lowPName, className: uClassName)
-        }
-        
-        
-        strObject += strProperties + "\n"
-        
-        strObject += "@end\n"
-        
-        return strObject
-    }
     
-    mutating func createProperty(_ valueType: ValueClassType,
-                                 key : String,
-                                 className: String
-    ) -> String {
-        let strValueType =  valueType.tagForOC
-        var result = ""
-        switch valueType {
-        case .kArray(_), .kObject(_):
-            result = "@property (nonatomic, strong) \(strValueType)\(self.buildProperty(name: key, className: className));\n"
-        case .kString:
-            result = "@property (nonatomic, copy) \(strValueType)\(self.buildProperty(name: key, className: className));\n"
-        default:
-            result = "@property (nonatomic, assign) \(strValueType)\(self.buildProperty(name: key, className: className));\n"
-        }
-        
-        return result
-    }
-    
-    mutating func createPropertyArray(numberOfChildren : Int,key : String, value : [Any]) -> ValueClassType {
+    mutating func createPropertyArray(numberOfChildren : Int,key : String, value : [Any]) -> PropertyType {
         guard let firstItem = value.first else {
             // ko lam
             print("array error")
             //TODO: 提示错误
             
-            let valueType: ValueClassType = .kAny
+            let valueType: PropertyType = .kAny
             return numberOfChildren == 0 ? valueType : .kArray(valueType)
         }
         
         if type(of: value) == type(of: NSNumber(integerLiteral: 1)) {
-            var valueType: ValueClassType = .kInt
+            var valueType: PropertyType = .kInt
             
             if let _ = value as? [Float] {
                 valueType = .kFloat
@@ -292,19 +235,19 @@ fileprivate struct ConvertToOC {
             
             return numberOfChildren == 0 ? valueType : .kArray(valueType)
         } else if type(of: value) == type(of: NSNumber(booleanLiteral: true)) {
-            let valueType: ValueClassType = .kBool
+            let valueType: PropertyType = .kBool
             return numberOfChildren == 0 ? valueType : .kArray(valueType)
         }
         
         switch firstItem {
             
         case is String:
-            let valueType: ValueClassType = .kString
+            let valueType: PropertyType = .kString
             return numberOfChildren == 0 ? valueType : .kArray(valueType)
             
         case is Double:
             
-            let valueType: ValueClassType = .kDouble
+            let valueType: PropertyType = .kDouble
             return numberOfChildren == 0 ? valueType : .kArray(valueType)
             
         case is Array<Any>:
@@ -360,11 +303,11 @@ fileprivate struct ConvertToOC {
             }
             
             if listKeyHavingInAllElement.count == 0 {
-                self.covertJSONToModel(name: key,
+                self.parseJSON(name: key,
                                        dic: dicToalPropertyOfArray
                 )
             } else {
-                self.covertJSONToModel(name: key,
+                self.parseJSON(name: key,
                                        dic: dicToalPropertyOfArray
                 )
             }
@@ -372,54 +315,159 @@ fileprivate struct ConvertToOC {
             
         default:
             
-            let valueType: ValueClassType = .kAny
+            let valueType: PropertyType = .kAny
             return numberOfChildren == 0 ? valueType : .kArray(valueType)
         }
     }
     
+    private func buildTop(isHeader: Bool) -> String {
+        
+        var content = "// \n"
+        content += "//\t\(fileName).h\n"
+        if(!info.projectName.isEmpty) {
+            content += "//\t\(info.projectName)\n"
+        }
+        content += "//\n"
+        content += "//\tCreated "
+        if(!info.author.isEmpty) {
+            content += "by \(info.author) "
+        }
+        content += "on " + DateFormatter.localizedString(from: Date(), dateStyle: .short, timeStyle: .none) + ".\n"
+        
+        content += "//\n"
+        if(isHeader) {
+            content += "\n#import <Foundation/Foundation.h>\n"
+        }else {
+            content += "\n#import \"\(fileName).h\"\n"
+        }
+        
+        return content
+    }
+    
     mutating func buildHContent() -> String {
+        
+        
+        func buildOneClas(uClassName: String, value: [String: PropertyType]) -> String {
+            let superClassName = info.superName.isEmpty ? "NSObject" : info.superName
+            var strObject = "\n#pragma mark - \(uClassName)\n\n"
+            strObject += "@interface \(uClassName) : \(superClassName)\n\n"
+            
+            var strProperties = ""
+            
+            for (pName, pValue) in value.sorted(by: {$0.key < $1.key}) {
+                let lowPName = buildProperty(name: pName, className: uClassName)
+                strProperties += buildPropertyRow(pValue,
+                                                  name: lowPName, className: uClassName)
+            }
+            
+            
+            strObject += strProperties + "\n"
+            
+            strObject += "@end\n"
+            
+            return strObject
+        }
+        
+        func buildPropertyRow(_ valueType: PropertyType,
+                              name propertyName : String,
+                              className: String) -> String {
+            let strValueType =  valueType.tagForOC
+            var result = ""
+            switch valueType {
+            case .kArray(_), .kObject(_):
+                result = "@property (nonatomic, strong) \(strValueType)\(propertyName);\n"
+            case .kString:
+                result = "@property (nonatomic, copy) \(strValueType)\(propertyName);\n"
+            default:
+                result = "@property (nonatomic, assign) \(strValueType)\(propertyName);\n"
+            }
+            
+            return result
+        }
+        
         var result = ""
+        
+        
         for (name, values) in dictObject {
             let uClassName = buildName(name: name)
             allClasses.append(uClassName)
-            let str = covertToObjectString(uClassName:uClassName, value: values)
+            let str = buildOneClas(uClassName:uClassName, value: values)
             result += str
         }
         let fileName = buildName(name: info.fileName)
         
         var preClass = ""
         if allClasses.count > 0 {
-            preClass = "@class " + allClasses.joined(separator: ",") + ";\n"
+            preClass = "\n@class " + allClasses.joined(separator: ",") + ";\n"
         }
-        result.insert(contentsOf: preClass, at: result.startIndex)
+        let theHeaerInfo = buildTop(isHeader: true) + preClass
+        result.insert(contentsOf: theHeaerInfo, at: result.startIndex)
         return result
     }
-    /*
-     
-     + (nullable NSDictionary<NSString *, id> *)modelContainerPropertyGenericClass {
-     return @{
-     @"user_tasks": [PBBookUserTaskModel class]
-     };
-     }
-     */
+    
     mutating func buildMContent() -> String {
-        var result = ""
+        
+        func buildCustomProperty(name className: String) -> String {
+            var content = ""
+            content += "+ (nullable NSDictionary<NSString *, id> *)modelCustomPropertyMapper {\n"
+            content += "\treturn @{\n"
+            if let propertyMap = camelCache[className] {
+                for (key, value) in propertyMap {
+                    content += "\t\t@\"\(key)\":@\"\(value)\",\n"
+                }
+            }
+            content += "\t};\n"
+            content += "}\n"
+            return content;
+        }
+        
+        func buildContainer(name className: String) -> String {
+            let propertyList = dictObject[className]
+            guard let list = propertyList else {
+                return ""
+            }
+            
+            func subTypeClass(type: PropertyType) -> String {
+                switch type {
+                case .kArray(let subType):
+                    return subTypeClass(type: subType)
+                case .kObject(let name):
+                    return name.components(separatedBy: " ").first ?? name
+                default:
+                    return type.tagForOC
+                }
+            }
+            
+            var content = ""
+            content += "\n+ (nullable NSDictionary<NSString *, id> *)modelContainerPropertyGenericClass {\n"
+            content += "\treturn @{\n"
+            var hasValue = false
+            for (name, type) in list {
+                switch type {
+                case .kArray(let subType):
+                    hasValue = true
+                    content += "\t\t@\"\(name)\":[\(subTypeClass(type: subType)) class],\n"
+                default:
+                    content += ""
+                }
+                    
+            }
+            content += "\t};\n"
+            content += "}\n"
+            return hasValue ? content : ""
+        }
+        
+        var result = buildTop(isHeader: false)
+        
         for className in allClasses {
             result += "\n#pragma mark - \(className)\n\n"
             result += "@implementation \(className)\n\n"
             if(info.useCamelCase) {
-                result += "+ (nullable NSDictionary<NSString *, id> *)modelCustomPropertyMapper {\n"
-                result += "\treturn @{\n"
-                if let propertyMap = camelCache[className] {
-                    for (key, value) in propertyMap {
-                        result += "\t\t@\"\(key)\":@\"\(value)\",\n"
-                    }
-                }
-                
-                result += "\t};\n"
-                result += "}\n"
+                result += buildCustomProperty(name: className)
             }
-            result += "@end\n\n"
+            result += buildContainer(name: className);
+            
+            result += "\n@end\n\n"
         }
         return result
     }
